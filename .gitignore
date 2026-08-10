@@ -1,0 +1,15 @@
+# Credenciales: NUNCA deben llegar al repositorio.
+.env
+*.env
+!*.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Muestras de correos: pueden traer nombres y datos de clientes reales.
+correo_nequi_crudo.html

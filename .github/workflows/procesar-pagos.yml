@@ -1,0 +1,56 @@
+name: Procesar pagos de Nequi
+
+# Antes de que esto funcione hay que crear tres secrets en el repositorio:
+#   Settings > Secrets and variables > Actions > New repository secret
+#     GMAIL_ACCOUNT
+#     GMAIL_APP_PASSWORD
+#     NEON_CONEXION_STR
+# Son los mismos valores del archivo .env local (que NO se sube al repo).
+
+on:
+  schedule:
+    # Cada 10 minutos. GitHub lee el cron en UTC, pero aqui solo importa el
+    # intervalo, no una hora concreta, asi que la zona horaria da igual.
+    #
+    # OJO CON EL COSTO: son ~4.300 corridas al mes. En un repositorio PRIVADO
+    # el plan gratuito da 2.000 minutos/mes y esto los agota a mitad de mes.
+    # Dos salidas: dejar el repo PUBLICO (minutos ilimitados, y aqui no hay
+    # credenciales en el codigo), o subir el intervalo a "*/30 * * * *"
+    # (~1.440 minutos/mes, dentro del plan gratis privado).
+    - cron: "*/10 * * * *"
+
+  # Boton para lanzarlo a mano desde la pestana Actions.
+  workflow_dispatch:
+
+# Si una corrida se demora mas que el intervalo, la siguiente espera en vez de
+# arrancar en paralelo. Duplicados no habria (el UNIQUE los frena), pero dos
+# procesos marcando correos como leidos a la vez es pedir problemas.
+concurrency:
+  group: procesar-pagos
+  cancel-in-progress: false
+
+jobs:
+  procesar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Revisar correos y guardar pagos
+        env:
+          GMAIL_ACCOUNT: ${{ secrets.GMAIL_ACCOUNT }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NEON_CONEXION_STR: ${{ secrets.NEON_CONEXION_STR }}
+        # Si algun correo no se puede procesar, el script sale con codigo != 0
+        # y esta corrida queda en rojo. GitHub te manda un correo avisando: es
+        # la unica forma de enterarte si Nequi cambia la plantilla del correo.
+        run: python procesar_pagos.py

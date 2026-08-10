@@ -1,0 +1,47 @@
+name: Reconciliar pagos
+
+# Red de seguridad diaria. procesar-pagos.yml solo mira correos NO leidos, asi
+# que un correo que abriste en el celular antes de que corriera el cron nunca
+# se registraria. Este job revisa leidos y no leidos, y guarda lo que falte.
+#
+# Usa los mismos tres secrets que procesar-pagos.yml.
+
+on:
+  schedule:
+    # 06:00 UTC = 01:00 en Colombia: el dia ya cerro y no hay trafico.
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: "Cuantos dias hacia atras revisar"
+        required: false
+        default: "2"
+
+concurrency:
+  group: reconciliar
+  cancel-in-progress: false
+
+jobs:
+  reconciliar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Completar pagos que falten
+        env:
+          GMAIL_ACCOUNT: ${{ secrets.GMAIL_ACCOUNT }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NEON_CONEXION_STR: ${{ secrets.NEON_CONEXION_STR }}
+        # En la corrida automatica revisa 2 dias; a mano puedes pedir mas.
+        run: python reconciliar.py ${{ github.event.inputs.dias || '2' }}

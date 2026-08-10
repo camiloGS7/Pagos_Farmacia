@@ -1,0 +1,12 @@
+# Dependencias de los scripts de Python (procesar_pagos.py, reconciliar.py,
+# obtener_correo_nequi.py). GitHub Actions instala exactamente estas versiones.
+#
+# Instalacion local:
+#     pip install -r requirements.txt
+#
+# Las versiones van fijadas a proposito: asi una actualizacion de alguna
+# libreria no puede romper el cobro de un dia sin que tu hayas tocado nada.
+
+psycopg2-binary==2.9.12
+beautifulsoup4==4.13.5
+python-dotenv==1.2.2

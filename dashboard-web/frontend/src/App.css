@@ -1,0 +1,342 @@
+/* Tokens de color. Los valores oscuros se declaran dos veces a proposito:
+   el @media cubre la preferencia del sistema operativo y el [data-theme]
+   cubre un interruptor manual, que debe ganar en los dos sentidos. */
+.viz-root {
+  color-scheme: light;
+  --plano: #f9f9f7;
+  --superficie: #fcfcfb;
+  --tinta: #0b0b0b;
+  --tinta-secundaria: #52514e;
+  --muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --borde: rgba(11, 11, 11, 0.1);
+  --serie-1: #2a78d6;
+  --sube: #006300;
+  --baja: #d03b3b;
+  --bien: #0ca30c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --plano: #0d0d0d;
+    --superficie: #1a1a19;
+    --tinta: #ffffff;
+    --tinta-secundaria: #c3c2b7;
+    --muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --borde: rgba(255, 255, 255, 0.1);
+    --serie-1: #3987e5;
+    --sube: #0ca30c;
+    --baja: #d03b3b;
+    --bien: #0ca30c;
+  }
+}
+
+:root[data-theme="dark"] .viz-root {
+  color-scheme: dark;
+  --plano: #0d0d0d;
+  --superficie: #1a1a19;
+  --tinta: #ffffff;
+  --tinta-secundaria: #c3c2b7;
+  --muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --borde: rgba(255, 255, 255, 0.1);
+  --serie-1: #3987e5;
+  --sube: #0ca30c;
+  --baja: #d03b3b;
+  --bien: #0ca30c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.viz-root {
+  min-height: 100vh;
+  padding: 32px 24px 64px;
+  background: var(--plano);
+  color: var(--tinta);
+}
+
+/* --- cabecera y filtros --- */
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  max-width: 1100px;
+  margin: 0 auto 28px;
+}
+
+.cabecera h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtitulo {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--tinta-secundaria);
+}
+
+.filtros {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.filtro {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--tinta-secundaria);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.filtro:hover {
+  color: var(--tinta);
+  background: var(--plano);
+}
+
+.filtro.activo {
+  color: var(--tinta);
+  background: var(--plano);
+  font-weight: 600;
+}
+
+.filtro:focus-visible {
+  outline: 2px solid var(--serie-1);
+  outline-offset: 1px;
+}
+
+/* --- contenido --- */
+
+.contenido {
+  display: grid;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* Al refrescar mantenemos lo anterior en pantalla, solo mas tenue.
+   Un esqueleto haria parpadear el layout cada minuto. */
+.contenido.atenuado {
+  opacity: 0.6;
+  transition: opacity 150ms ease;
+}
+
+.destacado {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 24px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+}
+
+/* Figura heroe: una sola por vista, en la misma sans que todo lo demas.
+   Sin tabular-nums: a este tamano los digitos de ancho fijo se ven sueltos. */
+.heroe {
+  font-size: 52px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.delta {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.delta.sube {
+  color: var(--sube);
+}
+
+.delta.baja {
+  color: var(--baja);
+}
+
+.fila-tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.tarjeta-etiqueta {
+  font-size: 13px;
+  color: var(--tinta-secundaria);
+}
+
+.tarjeta-valor {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.tarjeta-apoyo {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- paneles (grafica y tabla) --- */
+
+.panel {
+  padding: 22px 20px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.panel-apoyo {
+  margin: 4px 0 20px;
+  font-size: 13px;
+  color: var(--tinta-secundaria);
+}
+
+/* --- tooltip de la grafica --- */
+
+.tooltip {
+  padding: 10px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.tooltip-titulo {
+  font-size: 12px;
+  color: var(--tinta-secundaria);
+  text-transform: capitalize;
+}
+
+.tooltip-valor {
+  margin-top: 2px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.tooltip-apoyo {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --- tabla --- */
+
+.tabla-scroll {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabla th {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--muted);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--baseline);
+}
+
+.tabla td {
+  padding: 11px 12px;
+  color: var(--tinta-secundaria);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.tabla tr:last-child td {
+  border-bottom: none;
+}
+
+/* tabular-nums solo aqui: son columnas que deben alinearse verticalmente */
+.tabla .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla .monto {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+/* El estado lleva texto ademas del color: nunca solo el color. */
+.estado {
+  display: inline-block;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.estado.ok {
+  color: var(--bien);
+}
+
+.estado.alerta {
+  color: var(--baja);
+}
+
+/* --- estados vacios y errores --- */
+
+.vacio {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.error {
+  max-width: 1100px;
+  margin: 0 auto 20px;
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--baja);
+  background: var(--superficie);
+  border: 1px solid var(--baja);
+  border-radius: 10px;
+}
