@@ -1,379 +1,365 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceDot,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
-const RANGOS = [
-  { dias: 7, etiqueta: "7 dias" },
-  { dias: 14, etiqueta: "14 dias" },
-  { dias: 30, etiqueta: "30 dias" },
+import "./App.css";
+import { Iconos } from "./iconos.jsx";
+import {
+  RANGOS,
+  fechaLarga,
+  haceCuanto,
+  hoyBogota,
+  parametrosDe,
+  sumarDias,
+  traer,
+  ventanaDe,
+} from "./api.js";
+
+import Resumen from "./vistas/Resumen.jsx";
+import Transacciones from "./vistas/Transacciones.jsx";
+import Reportes from "./vistas/Reportes.jsx";
+import Configuracion from "./vistas/Configuracion.jsx";
+
+/* Cada 60 segundos se vuelve a pedir todo. El robot de GitHub Actions corre
+   cada 10 minutos, asi que refrescar mas seguido solo gastaria consultas a
+   Neon sin traer nada nuevo; 60 s da la sensacion de tablero vivo sin costo. */
+const REFRESCO_MS = 60000;
+
+const VISTAS = [
+  { clave: "resumen", etiqueta: "Resumen", icono: Iconos.Resumen, titulo: "Resumen del día" },
+  { clave: "transacciones", etiqueta: "Transacciones", icono: Iconos.Lista, titulo: "Transacciones" },
+  { clave: "reportes", etiqueta: "Reportes", icono: Iconos.Reporte, titulo: "Reportes" },
+  { clave: "configuracion", etiqueta: "Configuración", icono: Iconos.Ajustes, titulo: "Configuración" },
 ];
 
-const pesos = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
-
-const pesosCompacto = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-const porcentaje = new Intl.NumberFormat("es-CO", {
-  style: "percent",
-  maximumFractionDigits: 0,
-  signDisplay: "exceptZero",
-});
-
-/**
- * Parte el ISO a mano en vez de usar new Date("2026-08-04"): ese constructor
- * interpreta la cadena como UTC y en Colombia devolveria el dia anterior.
- */
-function aFecha(iso) {
-  const [anio, mes, dia] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(anio, mes - 1, dia);
+/** Iniciales para el avatar: "Gloria Sarmiento" -> "GS" */
+function iniciales(nombre) {
+  return (nombre || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join("");
 }
 
-function etiquetaDia(iso) {
-  return aFecha(iso).toLocaleDateString("es-CO", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function etiquetaDiaLarga(iso) {
-  return aFecha(iso).toLocaleDateString("es-CO", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-}
-
-function horaDe(fechaHora) {
-  return fechaHora.slice(11, 16);
-}
-
-/**
- * "hace 12 min". Las fechas vienen en hora de Colombia y se comparan contra el
- * reloj del navegador, asi que esto asume que estas viendo el tablero desde
- * Colombia (que es el caso). Sirve sobre todo para notar que algo se rompio:
- * si dice "hace 2 dias" es que dejaron de entrar correos.
- */
-function haceCuanto(fechaHora) {
-  if (!fechaHora) return null;
-
-  const [parteFecha, parteHora] = fechaHora.split(" ");
-  const [anio, mes, dia] = parteFecha.split("-").map(Number);
-  const [hh, mm, ss] = parteHora.split(":").map(Number);
-  const cuando = new Date(anio, mes - 1, dia, hh, mm, ss);
-
-  const minutos = Math.floor((Date.now() - cuando.getTime()) / 60000);
-  if (minutos < 1) return "hace un momento";
-  if (minutos < 60) return `hace ${minutos} min`;
-
-  const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `hace ${horas} h`;
-
-  const dias = Math.floor(horas / 24);
-  return dias === 1 ? "hace 1 dia" : `hace ${dias} dias`;
-}
-
-async function traer(ruta) {
-  const respuesta = await fetch(ruta);
-  if (!respuesta.ok) {
-    const cuerpo = await respuesta.json().catch(() => ({}));
-    throw new Error(cuerpo.error || `Error ${respuesta.status}`);
-  }
-  return respuesta.json();
-}
-
-/* ------------------------------------------------------------------ */
-
-function Tarjeta({ etiqueta, valor, apoyo }) {
-  return (
-    <div className="tarjeta">
-      <span className="tarjeta-etiqueta">{etiqueta}</span>
-      <span className="tarjeta-valor">{valor}</span>
-      {apoyo && <span className="tarjeta-apoyo">{apoyo}</span>}
-    </div>
+export default function App() {
+  const [vista, setVista] = useState("resumen");
+  const [tema, setTema] = useState(() =>
+    document.documentElement.classList.contains("dark") ? "oscuro" : "claro"
   );
-}
 
-function TooltipVentas({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const punto = payload[0].payload;
+  const [rango, setRango] = useState(() => {
+    const hoy = hoyBogota();
+    return { clave: "hoy", desde: sumarDias(hoy, -6), hasta: hoy };
+  });
+
+  const [config, setConfig] = useState(null);
+  const [resumen, setResumen] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Sube de uno en cada refresco. Las vistas lo tienen en sus dependencias, asi
+  // que con un solo contador se recargan todas a la vez sin coordinarse entre si.
+  const [version, setVersion] = useState(0);
+
+  /* La meta se guarda en el navegador. El servidor trae un valor por defecto
+     (variable de entorno META_DIARIA), pero cambiarlo desde Configuracion no
+     deberia exigir redesplegar nada, y es una preferencia de quien mira el
+     tablero, no un dato del negocio. */
+  const [metaLocal, setMetaLocal] = useState(() => {
+    const guardado = Number(localStorage.getItem("metaDiaria"));
+    return Number.isFinite(guardado) && guardado > 0 ? guardado : null;
+  });
+
+  const ventana = useMemo(() => ventanaDe(rango), [rango]);
+  const parametros = useMemo(() => parametrosDe(rango), [rango]);
+  const metaDiaria = metaLocal ?? config?.metaDiaria ?? 0;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", tema === "oscuro");
+    localStorage.setItem("tema", tema);
+  }, [tema]);
+
+  useEffect(() => {
+    traer("/api/config")
+      .then(setConfig)
+      // Que falle el nombre del negocio no debe tumbar el tablero: se usan los
+      // valores por defecto y se sigue.
+      .catch(() => setConfig({ negocio: "Farmacias Glosar", administradora: "Gloria Sarmiento", metaDiaria: 0 }));
+  }, []);
+
+  useEffect(() => {
+    let vigente = true;
+
+    traer(`/api/resumen?${parametros}`)
+      .then((datos) => {
+        if (!vigente) return;
+        setResumen(datos);
+        setError(null);
+      })
+      .catch((e) => vigente && setError(e.message));
+
+    // Si el rango cambia mientras una peticion vieja sigue en vuelo, esta
+    // bandera evita que la respuesta tardia pise a la nueva.
+    return () => {
+      vigente = false;
+    };
+  }, [parametros, version]);
+
+  useEffect(() => {
+    const reloj = setInterval(() => setVersion((v) => v + 1), REFRESCO_MS);
+    return () => clearInterval(reloj);
+  }, []);
+
+  const recargar = useCallback(() => setVersion((v) => v + 1), []);
+
+  const guardarMeta = useCallback((valor) => {
+    setMetaLocal(valor);
+    if (valor) localStorage.setItem("metaDiaria", String(valor));
+    else localStorage.removeItem("metaDiaria");
+  }, []);
+
+  const vistaActual = VISTAS.find((v) => v.clave === vista);
+  const negocio = config?.negocio || "Farmacias Glosar";
+  const administradora = config?.administradora || "Gloria Sarmiento";
+
+  const comunes = { rango, ventana, parametros, version, metaDiaria, recargar };
 
   return (
-    <div className="tooltip">
-      <div className="tooltip-titulo">{etiquetaDiaLarga(punto.dia)}</div>
-      <div className="tooltip-valor">{pesos.format(punto.total)}</div>
-      <div className="tooltip-apoyo">
-        {punto.transacciones}{" "}
-        {punto.transacciones === 1 ? "transaccion" : "transacciones"}
+    <div className="app">
+      <BarraLateral
+        vista={vista}
+        alCambiarVista={setVista}
+        negocio={negocio}
+        ultimoPago={resumen?.ultimoPago}
+        hayError={Boolean(error)}
+      />
+
+      <div className="principal">
+        <Cabecera
+          titulo={vistaActual.titulo}
+          rango={rango}
+          alCambiarRango={setRango}
+          mostrarFiltro={vista !== "configuracion"}
+          tema={tema}
+          alCambiarTema={() => setTema(tema === "oscuro" ? "claro" : "oscuro")}
+          administradora={administradora}
+          negocio={negocio}
+        />
+
+        <div className="contenido">
+          {error && (
+            <div className="aviso">
+              No se pudo leer la base de datos: {error}
+              <br />
+              Revisa que el servidor siga arriba y que la cadena de conexión de Neon sea correcta.
+            </div>
+          )}
+
+          {vista === "resumen" && <Resumen {...comunes} resumen={resumen} />}
+          {vista === "transacciones" && <Transacciones {...comunes} />}
+          {vista === "reportes" && <Reportes {...comunes} negocio={negocio} />}
+          {vista === "configuracion" && (
+            <Configuracion
+              metaDiaria={metaDiaria}
+              metaPorDefecto={config?.metaDiaria ?? 0}
+              esMetaLocal={metaLocal !== null}
+              alGuardarMeta={guardarMeta}
+              tema={tema}
+              alCambiarTema={setTema}
+              negocio={negocio}
+              administradora={administradora}
+              resumen={resumen}
+              hayError={Boolean(error)}
+            />
+          )}
+        </div>
+
+        {/* En el celular la barra lateral se vuelve una barra de pestañas abajo,
+            donde ya no cabe el estado de sincronizacion: se repite aqui, al pie
+            del contenido, y cada copia se oculta en el tamaño que no le toca. */}
+        <EstadoSync
+          ultimoPago={resumen?.ultimoPago}
+          hayError={Boolean(error)}
+          className="solo-movil"
+        />
       </div>
     </div>
   );
 }
 
-function GraficaVentas({ datos }) {
-  // Etiquetamos solo el maximo: un numero sobre cada punto se vuelve ruido y
-  // nadie lo lee. El resto de valores los cargan el eje y el tooltip.
-  const maximo = useMemo(() => {
-    if (!datos.length) return null;
-    const punto = datos.reduce((a, b) => (b.total > a.total ? b : a));
-    return punto.total > 0 ? punto : null;
-  }, [datos]);
+/* ------------------------------------------------------------------ *
+ * Barra lateral
+ * ------------------------------------------------------------------ */
 
+function BarraLateral({ vista, alCambiarVista, negocio, ultimoPago, hayError }) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={datos} margin={{ top: 28, right: 16, bottom: 4, left: 4 }}>
-        <CartesianGrid
-          stroke="var(--gridline)"
-          strokeWidth={1}
-          vertical={false}
-        />
-        <XAxis
-          dataKey="dia"
-          tickFormatter={etiquetaDia}
-          tickLine={false}
-          axisLine={{ stroke: "var(--baseline)" }}
-          tick={{ fill: "var(--muted)", fontSize: 12 }}
-          tickMargin={10}
-          minTickGap={16}
-        />
-        <YAxis
-          tickFormatter={(v) => (v === 0 ? "0" : pesosCompacto.format(v))}
-          tickLine={false}
-          axisLine={false}
-          tick={{ fill: "var(--muted)", fontSize: 12 }}
-          width={64}
-        />
-        <Tooltip
-          content={<TooltipVentas />}
-          cursor={{ stroke: "var(--baseline)", strokeWidth: 1 }}
-        />
-        <Area
-          type="monotone"
-          dataKey="total"
-          stroke="var(--serie-1)"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="var(--serie-1)"
-          fillOpacity={0.1}
-          dot={false}
-          activeDot={{
-            r: 4,
-            fill: "var(--serie-1)",
-            stroke: "var(--superficie)",
-            strokeWidth: 2,
-          }}
-          isAnimationActive={false}
-        />
-        {maximo && (
-          <ReferenceDot
-            x={maximo.dia}
-            y={maximo.total}
-            r={4}
-            fill="var(--serie-1)"
-            stroke="var(--superficie)"
-            strokeWidth={2}
-            label={{
-              value: pesosCompacto.format(maximo.total),
-              position: "top",
-              offset: 10,
-              fill: "var(--tinta-secundaria)",
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          />
-        )}
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-
-function TablaTransacciones({ filas }) {
-  if (!filas.length) {
-    return <p className="vacio">Todavia no hay pagos registrados.</p>;
-  }
-
-  return (
-    <div className="tabla-scroll">
-      <table className="tabla">
-        <thead>
-          <tr>
-            <th scope="col">Fecha</th>
-            <th scope="col">Hora</th>
-            <th scope="col">Pagador</th>
-            <th scope="col">Banco</th>
-            <th scope="col">Estado</th>
-            <th scope="col" className="num">
-              Monto
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((t) => (
-            <tr key={t.numero_transaccion}>
-              <td>{etiquetaDia(t.fecha_hora)}</td>
-              <td className="num">{horaDe(t.fecha_hora)}</td>
-              <td>{t.pagador || "—"}</td>
-              <td>{t.banco || "—"}</td>
-              <td>
-                <span
-                  className={
-                    t.estado === "Aprobada" ? "estado ok" : "estado alerta"
-                  }
-                >
-                  {t.estado}
-                </span>
-              </td>
-              <td className="num monto">{pesos.format(t.monto)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-export default function App() {
-  const [dias, setDias] = useState(14);
-  const [resumen, setResumen] = useState(null);
-  const [serie, setSerie] = useState([]);
-  const [transacciones, setTransacciones] = useState([]);
-  const [error, setError] = useState(null);
-  // primeraCarga separa "no hay nada que mostrar" de "estoy refrescando":
-  // en el refresco mantenemos lo anterior en pantalla, sin saltos de layout.
-  const [primeraCarga, setPrimeraCarga] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-
-  const cargar = useCallback(async () => {
-    setRefrescando(true);
-    try {
-      const [r, s, t] = await Promise.all([
-        traer("/api/resumen"),
-        traer(`/api/ventas-por-dia?dias=${dias}`),
-        traer("/api/transacciones?limite=25"),
-      ]);
-      setResumen(r);
-      setSerie(s);
-      setTransacciones(t);
-      setError(null);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setPrimeraCarga(false);
-      setRefrescando(false);
-    }
-  }, [dias]);
-
-  useEffect(() => {
-    cargar();
-    const id = setInterval(cargar, 60_000);
-    return () => clearInterval(id);
-  }, [cargar]);
-
-  const variacion = resumen?.variacionVsAyer;
-
-  return (
-    <div className="viz-root">
-      <header className="cabecera">
+    <aside className="barra-lateral">
+      <div className="marca">
+        <Iconos.Mortero />
         <div>
-          <h1>Pagos Nequi</h1>
-          <p className="subtitulo">
-            Ventas registradas automaticamente desde los correos de Nequi
-            {refrescando && !primeraCarga && " · actualizando…"}
-          </p>
-          {resumen?.ultimoPago && (
-            <p className="subtitulo">
-              Ultimo pago recibido {haceCuanto(resumen.ultimoPago)}
-            </p>
-          )}
+          <div className="marca-nombre">{negocio}</div>
+          <div className="marca-sub">Pagos digitales</div>
         </div>
+      </div>
 
-        {/* Una sola fila de filtros, arriba de todo lo que afecta. */}
-        <div className="filtros" role="group" aria-label="Rango de dias">
-          {RANGOS.map((r) => (
+      <nav className="menu">
+        {VISTAS.map((v) => {
+          const Icono = v.icono;
+          return (
             <button
-              key={r.dias}
+              key={v.clave}
               type="button"
-              className={r.dias === dias ? "filtro activo" : "filtro"}
-              aria-pressed={r.dias === dias}
-              onClick={() => setDias(r.dias)}
+              className={"menu-item" + (vista === v.clave ? " activo" : "")}
+              onClick={() => alCambiarVista(v.clave)}
+              aria-current={vista === v.clave ? "page" : undefined}
             >
-              {r.etiqueta}
+              <Icono />
+              {v.etiqueta}
             </button>
-          ))}
-        </div>
-      </header>
+          );
+        })}
+      </nav>
 
-      {error && (
-        <div className="error" role="alert">
-          {error}
-        </div>
-      )}
+      <EstadoSync
+        ultimoPago={ultimoPago}
+        hayError={hayError}
+        className="solo-escritorio"
+      />
+    </aside>
+  );
+}
 
-      {primeraCarga && !error && <p className="vacio">Cargando…</p>}
+/**
+ * El semaforo del robot: verde si acaba de entrar un pago, rojo si hace rato
+ * que no.
+ *
+ * En escritorio vive al pie de la barra lateral y en movil al pie del
+ * contenido, asi que recibe una clase para saber en cual de los dos sitios le
+ * toca aparecer.
+ */
+function EstadoSync({ ultimoPago, hayError, className = "" }) {
+  const desde = haceCuanto(ultimoPago);
 
-      {resumen && (
-        <main className={refrescando ? "contenido atenuado" : "contenido"}>
-          <section className="destacado">
-            <span className="tarjeta-etiqueta">Ventas de hoy</span>
-            <span className="heroe">{pesos.format(resumen.totalHoy)}</span>
-            {variacion !== null && variacion !== undefined && (
-              <span className={variacion >= 0 ? "delta sube" : "delta baja"}>
-                {porcentaje.format(variacion)} vs ayer a esta hora
-              </span>
-            )}
-          </section>
+  // Sin pagos en 24 horas es raro en una farmacia abierta: probablemente el
+  // robot dejo de correr. Se marca en rojo para que se note sin leer.
+  const frio = !desde || desde.includes("día");
 
-          <section className="fila-tarjetas">
-            <Tarjeta
-              etiqueta="Transacciones hoy"
-              valor={resumen.transaccionesHoy}
-            />
-            <Tarjeta
-              etiqueta="Ticket promedio hoy"
-              valor={pesos.format(resumen.ticketPromedioHoy)}
-            />
-            <Tarjeta
-              etiqueta="Ultimos 7 dias"
-              valor={pesos.format(resumen.totalSemana)}
-              apoyo={`${resumen.transaccionesSemana} transacciones`}
-            />
-          </section>
-
-          <section className="panel">
-            <h2>Ventas por dia</h2>
-            <p className="panel-apoyo">
-              Total aprobado por dia, ultimos {dias} dias
-            </p>
-            <GraficaVentas datos={serie} />
-          </section>
-
-          <section className="panel">
-            <h2>Ultimos pagos</h2>
-            <p className="panel-apoyo">
-              Los 25 mas recientes, incluidos los que no quedaron aprobados
-            </p>
-            <TablaTransacciones filas={transacciones} />
-          </section>
-        </main>
-      )}
+  return (
+    <div className={"estado-sync " + className}>
+      <span className={"punto" + (hayError || frio ? " alerta" : "")} />
+      <div className="estado-sync-texto">
+        {hayError
+          ? "Sin conexión con la base"
+          : desde
+            ? <>Último pago <span className="estado-sync-cuando">{desde}</span></>
+            : "Sin pagos registrados"}
+      </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Cabecera
+ * ------------------------------------------------------------------ */
+
+function Cabecera({
+  titulo,
+  rango,
+  alCambiarRango,
+  mostrarFiltro,
+  tema,
+  alCambiarTema,
+  administradora,
+  negocio,
+}) {
+  const hoy = hoyBogota();
+
+  const elegir = (clave) => {
+    if (clave !== "personalizado") {
+      alCambiarRango({ ...rango, clave });
+      return;
+    }
+    // Al entrar a personalizado se arranca con la ultima semana, que es un
+    // punto de partida util en vez de dos campos vacios.
+    alCambiarRango({
+      clave: "personalizado",
+      desde: rango.desde || sumarDias(hoy, -6),
+      hasta: rango.hasta || hoy,
+    });
+  };
+
+  return (
+    <header className="cabecera">
+      {/* Solo se ve en movil: alli la barra lateral, que es donde vive el
+          nombre del negocio en escritorio, se reduce a iconos abajo. */}
+      <div className="cabecera-negocio">{negocio}</div>
+
+      <div className="cabecera-titulo">
+        <h1>{titulo}</h1>
+        <div className="cabecera-fecha">{fechaLarga(hoy)}</div>
+      </div>
+
+      {/* En movil este contenedor se vuelve "display: contents" para que el
+          filtro, el boton de tema y el avatar se acomoden solos en la rejilla
+          de la cabecera en vez de ir todos apretados en una fila. */}
+      <div className="cabecera-acciones">
+        {mostrarFiltro && (
+          <div className="filtro">
+            <div className="filtro-grupo" role="group" aria-label="Rango de fechas">
+              {RANGOS.map((r) => (
+                <button
+                  key={r.clave}
+                  type="button"
+                  className={"filtro-boton" + (rango.clave === r.clave ? " activo" : "")}
+                  onClick={() => elegir(r.clave)}
+                  aria-pressed={rango.clave === r.clave}
+                >
+                  {r.etiqueta}
+                </button>
+              ))}
+            </div>
+
+            {rango.clave === "personalizado" && (
+              <div className="filtro-fechas">
+                <input
+                  className="campo"
+                  type="date"
+                  value={rango.desde}
+                  max={rango.hasta}
+                  aria-label="Desde"
+                  onChange={(e) => alCambiarRango({ ...rango, desde: e.target.value })}
+                />
+                <span>a</span>
+                <input
+                  className="campo"
+                  type="date"
+                  value={rango.hasta}
+                  min={rango.desde}
+                  max={hoy}
+                  aria-label="Hasta"
+                  onChange={(e) => alCambiarRango({ ...rango, hasta: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="boton-icono"
+          onClick={alCambiarTema}
+          title={tema === "oscuro" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          aria-label={tema === "oscuro" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+        >
+          {tema === "oscuro" ? <Iconos.Sol /> : <Iconos.Luna />}
+        </button>
+
+        <div className="usuario">
+          <div className="avatar">{iniciales(administradora)}</div>
+          <div className="usuario-datos">
+            <div className="usuario-nombre">{administradora}</div>
+            <div className="usuario-rol">Administradora</div>
+          </div>
+        </div>
+      </div>
+    </header>
   );
 }

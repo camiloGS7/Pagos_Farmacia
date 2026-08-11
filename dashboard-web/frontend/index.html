@@ -3,7 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pagos Nequi — Farmacia</title>
+    <title>Farmacias Glosar — Pagos digitales</title>
+
+    <!--
+      Alegreya Sans para los textos y IBM Plex Sans para los numeros. La
+      segunda tiene cifras de ancho fijo (tabular-nums), que es lo que evita
+      que los montos bailen de izquierda a derecha al actualizarse la tabla.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Se aplica el tema antes de que React monte para que la pagina no
+      // parpadee en blanco cuando el usuario tiene el modo oscuro puesto.
+      (function () {
+        try {
+          var guardado = localStorage.getItem("tema");
+          var oscuro =
+            guardado === "oscuro" ||
+            (guardado === null &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (oscuro) document.documentElement.classList.add("dark");
+        } catch (e) {
+          /* modo incognito con storage bloqueado: se queda en claro */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
