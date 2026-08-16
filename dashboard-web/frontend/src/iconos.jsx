@@ -103,4 +103,20 @@ export const Iconos = {
       <path d="M20 4v7h-7" />
     </Trazo>
   ),
+
+  /* Cuatro flechas hacia las esquinas: agrandar la gráfica */
+  Agrandar: ({ tam }) => (
+    <Trazo tam={tam}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-7.5 7.5" />
+      <path d="M10 20H4v-6" />
+      <path d="M4 20l7.5-7.5" />
+    </Trazo>
+  ),
+
+  Cerrar: ({ tam }) => (
+    <Trazo tam={tam}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Trazo>
+  ),
 };

@@ -555,6 +555,8 @@ button {
   border-radius: 4px 4px 0 0;
   opacity: 0.72;
   transition: height 0.35s ease, opacity 0.15s ease;
+  /* Ancla del monto que la vista ampliada escribe encima de cada columna. */
+  position: relative;
 }
 
 .barra.hoy {
@@ -650,6 +652,214 @@ button {
   color: var(--muted);
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Las fechas de los extremos se recuestan hacia adentro. Centradas sobre su
+   columna se saldrían de la caja: el rótulo mide varias veces lo que mide la
+   barra que rotula, y la del último día siempre se dibuja. */
+.barras-etiquetas .barra-etiqueta:first-child {
+  text-align: left;
+}
+
+.barras-etiquetas .barra-etiqueta:last-child {
+  text-align: right;
+}
+
+/* ==================================================================
+   Gráfica ampliada
+
+   El botón de agrandar vive en la cabecera de la tarjeta; al pulsarlo, la
+   misma gráfica se vuelve a dibujar sobre una lámina que cubre el tablero.
+   ================================================================== */
+
+/* La cabecera del panel alinea por baseline para que título y nota se lean a
+   la misma altura; el botón, que es una caja y no texto, necesita su propia
+   fila centrada. */
+.panel-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.boton-agrandar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.boton-agrandar:hover {
+  background: var(--sage-soft);
+  border-color: var(--sage);
+  color: var(--sage-deep);
+}
+
+.grafica-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(28, 25, 23, 0.42);
+  backdrop-filter: blur(2px);
+  animation: fondo-entra 0.16s ease-out;
+}
+
+:root.dark .grafica-fondo {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+@keyframes fondo-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+.grafica-ampliada {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 100%);
+  height: min(760px, 100%);
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 24px 26px 26px;
+  animation: ampliada-entra 0.18s ease-out;
+}
+
+@keyframes ampliada-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translateY(6px);
+  }
+}
+
+.ampliada-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ampliada-titulo {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.ampliada-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.boton-cerrar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.boton-cerrar:hover {
+  color: var(--coral);
+  border-color: var(--coral);
+}
+
+/* El cuerpo es lo único elástico de la lámina: cabecera y fichas miden lo que
+   miden, y las columnas se estiran para llenar lo que sobre. */
+.ampliada-cuerpo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.barras-grandes {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  gap: 5px;
+  /* Sitio para el monto que va escrito sobre la columna más alta. */
+  padding-top: 22px;
+  margin-top: 18px;
+}
+
+.barra-monto {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.barras-grandes + .barras-etiquetas {
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.ampliada-fichas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.ficha {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 2px dashed var(--perf);
+  border-radius: 14px;
+  padding: 13px 15px;
+  min-width: 0;
+}
+
+.ficha-etiqueta {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.ficha-valor {
+  font-size: 19px;
+  font-weight: 600;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ficha-nota {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
 }
 
 /* ==================================================================
@@ -1388,6 +1598,71 @@ button {
   .barra-etiqueta {
     font-size: 9.5px;
     letter-spacing: -0.2px;
+  }
+
+  /* ---------------------------------------------------------------
+     Gráfica ampliada en el celular
+
+     Aquí no tiene sentido una lámina flotante con el tablero asomando por
+     los bordes: ocupa la pantalla entera, como cualquier otra pantalla de
+     la aplicación.
+     --------------------------------------------------------------- */
+
+  .grafica-fondo {
+    padding: 0;
+  }
+
+  .grafica-ampliada {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    /* env(safe-area-inset-*) deja libre la barra de gestos del teléfono, que
+       si no se come el borde inferior de las fichas. */
+    padding: calc(18px + env(safe-area-inset-top)) 16px
+      calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .ampliada-titulo {
+    font-size: 20px;
+  }
+
+  .ampliada-sub {
+    font-size: 12.5px;
+  }
+
+  /* Repite el alto elástico: la regla móvil de .barras le fija 150 px unas
+     líneas más arriba y, a igual especificidad, mandaría la última. */
+  .barras-grandes {
+    height: auto;
+    flex: 1;
+    min-height: 0;
+    gap: 3px;
+    margin-top: 14px;
+  }
+
+  .barras-grandes + .barras-etiquetas {
+    gap: 3px;
+  }
+
+  /* Tres cifras en pesos no caben en una fila de teléfono: dos arriba y la
+     tercera cruzada abajo. */
+  .ampliada-fichas {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .ampliada-fichas .ficha:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .ficha {
+    padding: 11px 13px;
+  }
+
+  .ficha-valor {
+    font-size: 17px;
   }
 
   .dona-fila {

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
+import { Iconos } from "../iconos.jsx";
 import {
   COLORES_SERIE,
   etiquetaDia,
@@ -144,71 +146,248 @@ function Stat({ etiqueta, valor, delta, nota }) {
  * ------------------------------------------------------------------ */
 
 function Grafica({ datos, esUnSoloDia }) {
-  // Indice de la columna sobre la que esta el cursor, o null si no hay ninguna.
-  const [activo, setActivo] = useState(null);
+  const [ampliada, setAmpliada] = useState(false);
+
+  /* La tecla Escape cierra la vista ampliada y, mientras esta abierta, la
+     pagina de atras deja de rodar: si no, en el celular el dedo arrastra el
+     tablero por debajo de la grafica. El efecto va antes del return temprano
+     porque los hooks no pueden quedar detras de un condicional. */
+  useEffect(() => {
+    if (!ampliada) return;
+
+    const alTeclear = (e) => e.key === "Escape" && setAmpliada(false);
+    const desbordePrevio = document.body.style.overflow;
+
+    window.addEventListener("keydown", alTeclear);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", alTeclear);
+      document.body.style.overflow = desbordePrevio;
+    };
+  }, [ampliada]);
 
   if (!datos) return <div className="tarjeta cargando">Cargando gráfica…</div>;
 
   const dias = datos.dias || [];
-  const maximo = Math.max(...dias.map((d) => d.total), 1);
   const total = dias.reduce((s, d) => s + d.total, 0);
+
+  return (
+    <>
+      <div className="tarjeta grafica">
+        <div className="panel-cabecera">
+          <div>
+            <div className="panel-titulo">Ventas por día</div>
+            <div className="panel-sub">
+              {esUnSoloDia ? "Últimos 7 días" : `${dias.length} días del rango`}
+            </div>
+          </div>
+
+          <div className="panel-acciones">
+            <div className="panel-nota">{pesos(total)} en total</div>
+            {dias.length > 0 && (
+              <button
+                type="button"
+                className="boton-agrandar"
+                onClick={() => setAmpliada(true)}
+                title="Agrandar"
+                aria-label="Ver la gráfica en grande"
+              >
+                <Iconos.Agrandar tam={15} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {dias.length === 0 ? (
+          <div className="vacio">No hay ventas en este rango.</div>
+        ) : (
+          <Barras dias={dias} hoy={datos.hoy} />
+        )}
+      </div>
+
+      {ampliada && (
+        <GraficaAmpliada
+          dias={dias}
+          hoy={datos.hoy}
+          total={total}
+          esUnSoloDia={esUnSoloDia}
+          alCerrar={() => setAmpliada(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/* El mismo corte que usa el CSS para pasar a la disposición de teléfono. Aquí
+   hace falta en JavaScript porque cuántas fechas caben debajo de la gráfica no
+   se puede decidir con reglas de estilo: hay que dejar de dibujar algunas. */
+const CORTE_MOVIL = "(max-width: 768px)";
+
+function useEsAngosto() {
+  const [angosto, setAngosto] = useState(
+    () => window.matchMedia(CORTE_MOVIL).matches
+  );
+
+  useEffect(() => {
+    const consulta = window.matchMedia(CORTE_MOVIL);
+    const alCambiar = (e) => setAngosto(e.matches);
+    consulta.addEventListener("change", alCambiar);
+    // Girar el teléfono o arrastrar el borde de la ventana cruza el corte sin
+    // que se remonte nada, asi que hay que escuchar el cambio.
+    setAngosto(consulta.matches);
+    return () => consulta.removeEventListener("change", alCambiar);
+  }, []);
+
+  return angosto;
+}
+
+/**
+ * Las columnas y sus etiquetas. Mismo dibujo en la tarjeta y en la vista
+ * ampliada; `grande` es lo unico que cambia: alli las barras crecen para
+ * llenar el alto disponible y, si caben, cada una lleva su monto encima.
+ */
+function Barras({ dias, hoy, grande = false }) {
+  // Indice de la columna sobre la que esta el cursor, o null si no hay ninguna.
+  const [activo, setActivo] = useState(null);
+  const angosto = useEsAngosto();
+
+  const maximo = Math.max(...dias.map((d) => d.total), 1);
 
   // Con muchos dias las etiquetas se amontonan, asi que solo se rotula una de
   // cada n. Se ancla al ultimo dia para que el mas reciente siempre se vea.
-  const salto = Math.ceil(dias.length / 12);
+  // La lámina ampliada de escritorio da para muchas mas; la de un telefono,
+  // que es igual de ancha que la tarjeta pero con letra mas suelta, para menos.
+  const rotulos = grande ? (angosto ? 6 : 20) : 12;
+  const salto = Math.ceil(dias.length / rotulos);
+
+  // Escribir el monto sobre cada barra solo funciona con pocas columnas; con
+  // mas se pisarian unos con otros y quedaria un borron. Ahi manda la pestaña.
+  const montosEncima = grande && dias.length <= (angosto ? 10 : 16);
 
   return (
-    <div className="tarjeta grafica">
-      <div className="panel-cabecera">
-        <div>
-          <div className="panel-titulo">Ventas por día</div>
-          <div className="panel-sub">
-            {esUnSoloDia ? "Últimos 7 días" : `${dias.length} días del rango`}
+    <>
+      <div
+        className={"barras" + (grande ? " barras-grandes" : "")}
+        onMouseLeave={() => setActivo(null)}
+      >
+        {dias.map((d, i) => (
+          <div
+            className="barra-hueco"
+            key={d.dia}
+            onMouseEnter={() => setActivo(i)}
+          >
+            <div
+              className={
+                "barra" +
+                (d.dia === hoy ? " hoy" : "") +
+                (activo === i ? " activa" : "")
+              }
+              style={{ height: `${(d.total / maximo) * 100}%` }}
+            >
+              {montosEncima && (
+                <span className="barra-monto">{pesosCortos(d.total)}</span>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="panel-nota">{pesos(total)} en total</div>
+        ))}
+
+        {activo !== null && (
+          <Pista
+            dia={dias[activo]}
+            posicion={(activo + 0.5) / dias.length}
+            alto={dias[activo].total / maximo}
+          />
+        )}
       </div>
 
-      {dias.length === 0 ? (
-        <div className="vacio">No hay ventas en este rango.</div>
-      ) : (
-        <>
-          <div className="barras" onMouseLeave={() => setActivo(null)}>
-            {dias.map((d, i) => (
-              <div
-                className="barra-hueco"
-                key={d.dia}
-                onMouseEnter={() => setActivo(i)}
-              >
-                <div
-                  className={
-                    "barra" +
-                    (d.dia === datos.hoy ? " hoy" : "") +
-                    (activo === i ? " activa" : "")
-                  }
-                  style={{ height: `${(d.total / maximo) * 100}%` }}
-                />
-              </div>
-            ))}
+      <div className="barras-etiquetas">
+        {dias.map((d, i) => (
+          <div className="barra-etiqueta" key={d.dia}>
+            {(dias.length - 1 - i) % salto === 0 ? etiquetaDia(d.dia) : ""}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
-            {activo !== null && (
-              <Pista
-                dia={dias[activo]}
-                posicion={(activo + 0.5) / dias.length}
-                alto={dias[activo].total / maximo}
-              />
-            )}
+/**
+ * La misma gráfica ocupando la pantalla: en el celular de borde a borde, en
+ * escritorio como una lámina grande sobre el tablero atenuado.
+ *
+ * Va montada en <body> con un portal y no dentro de la tarjeta. Sin eso
+ * heredaria el recorte y el apilamiento de la rejilla de paneles, y bastaria
+ * un `overflow` de cualquier padre para dejarla a medias.
+ */
+function GraficaAmpliada({ dias, hoy, total, esUnSoloDia, alCerrar }) {
+  const promedio = dias.length > 0 ? total / dias.length : 0;
+  const mejor = dias.reduce((a, d) => (d.total > a.total ? d : a), dias[0]);
+  const pagos = dias.reduce((s, d) => s + d.transacciones, 0);
+
+  return createPortal(
+    <div
+      className="grafica-fondo"
+      // Solo cierra el clic en el fondo; los de la lámina no deben burbujear
+      // hasta aqui y cerrarla mientras se explora la gráfica.
+      onMouseDown={(e) => e.target === e.currentTarget && alCerrar()}
+    >
+      <div
+        className="grafica-ampliada"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ventas por día, vista ampliada"
+      >
+        <div className="ampliada-cabecera">
+          <div>
+            <div className="ampliada-titulo">Ventas por día</div>
+            <div className="ampliada-sub">
+              {esUnSoloDia ? "Últimos 7 días" : `${dias.length} días del rango`}
+              {" · "}
+              {pesos(total)} en total
+            </div>
           </div>
 
-          <div className="barras-etiquetas">
-            {dias.map((d, i) => (
-              <div className="barra-etiqueta" key={d.dia}>
-                {(dias.length - 1 - i) % salto === 0 ? etiquetaDia(d.dia) : ""}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+          <button
+            type="button"
+            className="boton-cerrar"
+            onClick={alCerrar}
+            title="Cerrar"
+            aria-label="Cerrar la vista ampliada"
+            autoFocus
+          >
+            <Iconos.Cerrar tam={16} />
+          </button>
+        </div>
+
+        <div className="ampliada-cuerpo">
+          <Barras dias={dias} hoy={hoy} grande />
+        </div>
+
+        <div className="ampliada-fichas">
+          <Ficha etiqueta="Promedio diario" valor={pesos(promedio)} />
+          <Ficha
+            etiqueta="Mejor día"
+            valor={pesos(mejor.total)}
+            nota={etiquetaDiaConSemana(mejor.dia)}
+          />
+          <Ficha
+            etiqueta="Pagos del período"
+            valor={pagos.toLocaleString("es-CO")}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function Ficha({ etiqueta, valor, nota }) {
+  return (
+    <div className="ficha">
+      <div className="ficha-etiqueta">{etiqueta}</div>
+      <div className="ficha-valor num">{valor}</div>
+      {nota && <div className="ficha-nota">{nota}</div>}
     </div>
   );
 }
