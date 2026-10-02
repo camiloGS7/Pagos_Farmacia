@@ -1,5 +1,6 @@
 # Dependencias de los scripts de Python (procesar_pagos.py, reconciliar.py,
-# obtener_correo_nequi.py). GitHub Actions instala exactamente estas versiones.
+# obtener_correo_nequi.py, escuchar_pagos.py). GitHub Actions instala
+# exactamente estas versiones, y Railway tambien.
 #
 # Instalacion local:
 #     pip install -r requirements.txt
@@ -10,3 +11,9 @@
 psycopg2-binary==2.9.12
 beautifulsoup4==4.13.5
 python-dotenv==1.2.2
+
+# Solo la necesita escuchar_pagos.py. Es un cliente IMAP sobre el imaplib de la
+# libreria estandar que si expone el modo IDLE (idle / idle_check / idle_done),
+# que es justo lo que permite quedarse escuchando en vez de preguntar cada
+# tanto. Los otros scripts siguen usando imaplib directo, sin cambios.
+IMAPClient==4.1.0
