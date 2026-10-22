@@ -90,18 +90,24 @@ async function revisar(db, conexionStr) {
   const antes = await contarPagos(db);
   const resultado = await correrScript(conexionStr);
 
-  if (!resultado.disponible) {
+  // procesar_pagos.py sale con codigo 1 en dos casos muy distintos:
+  //   - reviso la bandeja pero algun correo no se pudo leer (por ejemplo los
+  //     traslados por Bre-B, que no son ventas). La revision SI ocurrio, y
+  //     antes de salir imprime su linea "Resumen: N pago(s) nuevo(s)...".
+  //   - se cayo antes de revisar nada: falta una libreria, la contraseña de
+  //     Gmail esta mal, no hay red. Ahi nunca llega a imprimir "Resumen:".
+  // Solo el primero cuenta como revisado; decir "No habia pagos nuevos"
+  // despues de un fallo haria creer a Gloria que el cliente no pago.
+  const reviso = resultado.disponible && (resultado.codigo === 0 || /Resumen:/.test(resultado.salida));
+  if (resultado.disponible && resultado.codigo !== 0) {
+    console.warn(`procesar_pagos.py termino con codigo ${resultado.codigo}:\n${resultado.salida}`);
+  }
+
+  if (!reviso) {
     if (await dispararWorkflow()) return { modo: "en-cola", nuevos: null };
     throw new ErrorHttp(503, "No hay como leer el correo desde este servidor.", {
       codigo: "sin-lector",
     });
-  }
-
-  // procesar_pagos.py sale con codigo 1 cuando algun correo no se pudo leer
-  // (por ejemplo los traslados por Bre-B, que no son ventas). La revision si
-  // ocurrio; lo que importa aqui es cuantos pagos entraron.
-  if (resultado.codigo !== 0) {
-    console.warn(`procesar_pagos.py termino con codigo ${resultado.codigo}:\n${resultado.salida}`);
   }
   const despues = await contarPagos(db);
   return { modo: "listo", nuevos: Math.max(0, despues - antes) };
