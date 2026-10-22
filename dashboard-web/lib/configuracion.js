@@ -12,7 +12,6 @@ const POR_DEFECTO = {
   meta_diaria: Number(process.env.META_DIARIA) || 600000,
   avisos: { sonido: true, sin_pagos_2h: true, recordar_cierre: false },
   tema: "auto",
-  captura_ultima_revision: null,
 };
 
 const TEMAS = ["claro", "oscuro", "auto"];

@@ -29,7 +29,7 @@ export function estadoCaptura(ultimoPago, enHorario) {
     detenida,
     titulo: detenida ? (minutos === null ? "Sin pagos hoy" : `Sin pagos ${haceCuanto(minutos)}`) : "Recibiendo pagos",
     texto: detenida
-      ? "Toca para revisar la captura."
+      ? "Toca para ver el estado."
       : minutos === null
         ? "Todavía no llegan pagos."
         : `Último pago ${haceCuanto(minutos)}.`,

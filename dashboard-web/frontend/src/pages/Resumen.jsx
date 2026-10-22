@@ -355,7 +355,7 @@ export default function Resumen() {
       role="alert"
       icono={<Iconos.Alerta />}
       titulo={datos.ultimoPago ? `No llegan pagos ${captura.titulo.replace("Sin pagos ", "")}.` : "Hoy no ha llegado ningún pago."}
-      accion={<a className="btn btn-secundario" href="#/configuracion/captura">Revisar ahora</a>}
+      accion={<a className="btn btn-secundario" href="#/configuracion/captura">Ver estado</a>}
     >
       Puede que el correo no se esté revisando.
     </Aviso>

@@ -1,6 +1,6 @@
 /**
  * Configuracion (en el celular, "Ajustes"): meta diaria, avisos, apariencia y
- * el estado de la captura de pagos con el boton "Revisar correo ahora".
+ * el estado de la captura de pagos.
  *
  * Los switches y el tema se guardan apenas se tocan (no hay boton Guardar:
  * un switch ya es una decision). La meta si espera a "Guardar", porque se
@@ -8,16 +8,14 @@
  */
 
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useApp } from "../App.jsx";
 import { BotonTema } from "../components/Navegacion.jsx";
 import { Aviso, Button, Card, CabeceraCard, MoneyInput, Pill, Segmented, Switch } from "../components/ui/index.jsx";
 import { Iconos } from "../components/ui/Iconos.jsx";
-import { mensajeDeError, pedir } from "../lib/api.js";
+import { mensajeDeError } from "../lib/api.js";
 import { useCaptura, useGuardarConfiguracion } from "../lib/consultas.js";
-import { ahoraBogota } from "../lib/fechas.js";
-import { diaMes, haceCuanto, hora12, hora24, plural } from "../lib/format.js";
+import { diaMes, haceCuanto, hora24 } from "../lib/format.js";
 
 const TEMAS = [
   { valor: "claro", etiqueta: "Claro" },
@@ -79,34 +77,12 @@ function Meta({ meta, guardar, movil }) {
   );
 }
 
+/**
+ * Estado de la captura: si estan entrando pagos y cuando llego el ultimo. Es
+ * solo informativo; los pagos se registran solos desde el correo.
+ */
 function Captura({ captura, estado, hoy }) {
-  const cliente = useQueryClient();
-  const [resultado, setResultado] = useState(null);
-  const revisar = useMutation({
-    mutationFn: () => pedir("/api/captura/revisar", { metodo: "POST" }),
-    onSuccess: (r) => {
-      setResultado(
-        r.modo === "en-cola"
-          ? { tono: "info", texto: "Pedimos la revisión. Los pagos nuevos aparecen en un par de minutos." }
-          : { tono: "ok", texto: r.nuevos ? `Correo revisado: ${plural(r.nuevos, "pago nuevo", "pagos nuevos")}.` : "Correo revisado. No había pagos nuevos." }
-      );
-      cliente.invalidateQueries();
-    },
-    onError: (e) => {
-      setResultado({
-        tono: "error",
-        texto:
-          e.codigo === "espera"
-            ? `Acabamos de revisar. Intenta otra vez en ${e.cuerpo.segundos} segundos.`
-            : e.estado === 0
-              ? "No pudimos revisar. Revisa tu conexión e intenta de nuevo."
-              : "No pudimos revisar el correo desde aquí. Los pagos siguen entrando solos.",
-      });
-    },
-  });
-
   const ultimo = captura.data?.ultimoPago;
-  const revision = captura.data?.ultimaRevision;
   // La misma regla de la barra lateral: solo preocupa en horario de atencion.
   const funcionando = !estado.detenida;
   const textoUltimo = !ultimo
@@ -114,8 +90,6 @@ function Captura({ captura, estado, hoy }) {
     : ultimo.fechaHora.slice(0, 10) === hoy
       ? `hoy, ${hora24(ultimo.fechaHora)}`
       : `${diaMes(ultimo.fechaHora)}, ${hora24(ultimo.fechaHora)}`;
-  const fechaRevision = revision ? ahoraBogota(new Date(revision)).fecha : null;
-  const textoRevision = revision ? `${fechaRevision === hoy ? "hoy" : diaMes(fechaRevision)}, ${hora12(revision)}` : "—";
 
   return (
     <Card id="captura" aria-labelledby="captura-t">
@@ -130,18 +104,7 @@ function Captura({ captura, estado, hoy }) {
       <dl className="captura-datos">
         <dt>Último pago registrado</dt>
         <dd>{textoUltimo}</dd>
-        <dt>Última revisión a mano</dt>
-        <dd>{textoRevision}</dd>
       </dl>
-      <div className="captura-accion">
-        <Button variante="secundario" icono={<Iconos.Refrescar />} onClick={() => revisar.mutate()} disabled={revisar.isPending}>
-          {revisar.isPending ? "Revisando el correo…" : "Revisar correo ahora"}
-        </Button>
-        <span>Úsalo si un cliente ya pagó y no aparece.</span>
-      </div>
-      {resultado && (
-        <Aviso tono={resultado.tono === "ok" ? "info" : resultado.tono} role={resultado.tono === "error" ? "alert" : "status"} titulo={resultado.texto} />
-      )}
     </Card>
   );
 }

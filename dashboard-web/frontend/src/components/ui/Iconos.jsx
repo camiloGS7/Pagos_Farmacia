@@ -124,12 +124,6 @@ export const Iconos = {
       <path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
     </Trazo>
   ),
-  Refrescar: (p) => (
-    <Trazo tam={18} {...p}>
-      <path d="M20 11a8 8 0 0 0-14.9-3M4 13a8 8 0 0 0 14.9 3" />
-      <path d="M5 4v4h4M19 20v-4h-4" />
-    </Trazo>
-  ),
   Reloj: (p) => (
     <Trazo tam={18} {...p}>
       <circle cx="12" cy="12" r="8.5" />

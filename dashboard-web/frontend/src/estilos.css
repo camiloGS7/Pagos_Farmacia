@@ -1024,12 +1024,8 @@ button.fila-tactil:active { background: var(--raised); }
 .captura-datos dt, .captura-datos dd { padding: 12px 0; border-top: 1px solid var(--track); }
 .captura-datos dt { color: var(--muted); font-weight: 600; }
 .captura-datos dd { font-weight: 700; text-align: right; }
-.captura-accion { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.captura-accion span { font-size: 13px; color: var(--muted); }
 @media (max-width: 767px) {
   .config-meta-fila .money-campo { flex: 1 1 100%; }
   .config-meta-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
-  .apariencia { flex-direction: column !important; align-items: stretch; }
-  .captura-accion .btn { width: 100%; }
-}
+  .apariencia { flex-direction: column !important; align-items: stretch; }}
 @media (min-width: 768px) { .config { gap: 20px; } }

@@ -15,7 +15,7 @@
 const path = require("path");
 const express = require("express");
 
-const { pool, enTransaccion, CONEXION_STR, NOMBRE_VARIABLE } = require("./lib/db");
+const { pool, enTransaccion, NOMBRE_VARIABLE } = require("./lib/db");
 
 const PUERTO = process.env.PORT || 3001;
 
@@ -31,7 +31,7 @@ app.use(require("./rutas/pagos")(pool));
 app.use(require("./rutas/ventas")(pool));
 app.use(require("./rutas/cierres")(pool, { enTransaccion }));
 app.use(require("./rutas/configuracion")(pool));
-app.use(require("./rutas/captura")(pool, { conexionStr: CONEXION_STR }));
+app.use(require("./rutas/captura")(pool));
 app.use(require("./rutas/reportes")(pool));
 
 // Cualquier otra /api/... responde 404 en JSON, no con el index.html.
