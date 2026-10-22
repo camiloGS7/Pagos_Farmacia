@@ -87,7 +87,14 @@ function Recaudado({ datos, hoy }) {
 function Kpis({ datos, hoy }) {
   const delta = (fraccion, largo) => {
     const v = variacion(fraccion);
-    if (!v) return <span className="kpi-nota">Sin comparación</span>;
+    if (!v) {
+      return (
+        <span className="kpi-nota">
+          <span className="kpi-texto-largo">Sin comparación</span>
+          <span className="kpi-texto-corto" aria-label="Sin comparación">—</span>
+        </span>
+      );
+    }
     return (
       <span className="kpi-nota">
         <strong className={fraccion < 0 ? "baja" : "sube"}>{v}</strong>
@@ -117,7 +124,12 @@ function Kpis({ datos, hoy }) {
               {banco(alto.banco).label}
               <span className="kpi-texto-largo"> · {cuandoFue(alto.fechaHora, hoy)}</span>
             </>
-          ) : "Aún no hay pagos"}
+          ) : (
+            <>
+              <span className="kpi-texto-largo">Aún no hay pagos</span>
+              <span className="kpi-texto-corto">Sin pagos</span>
+            </>
+          )}
         </span>
       </Card>
     </section>
