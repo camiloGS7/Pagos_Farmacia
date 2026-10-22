@@ -2,16 +2,22 @@
   "name": "dashboard-web",
   "version": "1.0.0",
   "private": true,
-  "description": "API que lee las transacciones de Nequi guardadas en Neon",
+  "description": "API y tablero de pagos de Farmacia Glosar: pagos Bre-B, cierre de caja y ventas totales",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "build": "npm --prefix frontend install && npm --prefix frontend run build"
+    "dev:prueba": "node --watch server.js --prueba",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "migrar": "node scripts/migrar.js",
+    "migrar:prueba": "node scripts/migrar.js --prueba",
+    "test": "node --test"
   },
   "dependencies": {
+    "@fontsource/manrope": "^5.3.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "pdfkit": "^0.20.2",
     "pg": "^8.13.1"
   }
 }
