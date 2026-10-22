@@ -1,36 +1,44 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-CO" class="t-claro">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Farmacias Glosar — Pagos digitales</title>
+    <!-- viewport-fit=cover deja usar toda la pantalla del iPhone; las zonas
+         seguras (la isla y la barra de inicio) se respetan con env(safe-area-inset-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F5F6F8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Glosar Pagos" />
+    <title>Resumen · Farmacia Glosar</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%2334D399'/%3E%3Cpath d='M18 10v16M10 18h16' stroke='%230B1220' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
 
-    <!--
-      Alegreya Sans para los textos y IBM Plex Sans para los numeros. La
-      segunda tiene cifras de ancho fijo (tabular-nums), que es lo que evita
-      que los montos bailen de izquierda a derecha al actualizarse la tabla.
-    -->
+    <!-- Manrope para la interfaz e IBM Plex Mono para referencias y montos de ejemplo. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
 
     <script>
-      // Se aplica el tema antes de que React monte para que la pagina no
-      // parpadee en blanco cuando el usuario tiene el modo oscuro puesto.
+      // El tema se aplica antes de que cargue React para que la pagina no
+      // parpadee en blanco cuando esta en oscuro. useTema lo mantiene despues.
       (function () {
+        var preferencia = "auto";
         try {
-          var guardado = localStorage.getItem("tema");
-          var oscuro =
-            guardado === "oscuro" ||
-            (guardado === null &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (oscuro) document.documentElement.classList.add("dark");
+          preferencia = localStorage.getItem("tema") || "auto";
         } catch (e) {
-          /* modo incognito con storage bloqueado: se queda en claro */
+          /* storage bloqueado: automatico */
         }
+        var oscuro =
+          preferencia === "oscuro" ||
+          (preferencia !== "claro" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var raiz = document.documentElement;
+        raiz.classList.toggle("t-oscuro", oscuro);
+        raiz.classList.toggle("t-claro", !oscuro);
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", oscuro ? "#13171F" : "#F5F6F8");
       })();
     </script>
   </head>

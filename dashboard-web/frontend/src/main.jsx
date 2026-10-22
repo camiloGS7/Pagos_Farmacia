@@ -1,10 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { QueryClientProvider } from "@tanstack/react-query";
+
 import App from "./App.jsx";
-import "./App.css";
+import { ToastProvider } from "./components/ui/Toast.jsx";
+import { clienteConsultas } from "./lib/consultas.js";
+import "./estilos.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <QueryClientProvider client={clienteConsultas}>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );
