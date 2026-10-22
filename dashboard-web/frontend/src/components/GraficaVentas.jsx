@@ -50,8 +50,12 @@ function etiquetaPunto(p, unidad) {
   return p.actual ? "Hoy · en curso" : `${diaSemana(p.clave)} ${diaMes(p.clave)}`;
 }
 
-/** Medidas segun cuantas barras hay y donde se dibujan. */
-function medidas(n, lugar) {
+/**
+ * Medidas segun cuantas barras hay y donde se dibujan. En la vista ampliada
+ * el alto sale de la pantalla (`altoMax`): en un portatil de 768 px el
+ * dialogo completo tiene que caber sin tener que rodar.
+ */
+function medidas(n, lugar, altoMax = 400) {
   if (lugar === "movil") {
     const gap = n <= 7 ? 10 : n <= 10 ? 8 : 4;
     const ancho = n <= 10 ? 30 : 14;
@@ -60,9 +64,10 @@ function medidas(n, lugar) {
   const grande = lugar === "grande";
   const gap = n <= 7 ? 28 : n <= 10 ? 20 : n <= 16 ? 12 : n <= 31 ? 6 : 3;
   const ancho = n <= 10 ? 56 : n <= 16 ? 40 : 26;
+  const altoGrande = Math.max(220, Math.min(400, Math.round(altoMax)));
   return {
-    alto: grande ? 400 : 260,
-    altoBarra: grande ? 330 : 200,
+    alto: grande ? altoGrande : 260,
+    altoBarra: grande ? altoGrande - 70 : 200,
     gap: grande ? Math.round(gap * 1.6) : gap,
     ancho: grande ? Math.round(ancho * 1.45) : ancho,
     minCol: n > 16 ? (grande ? 20 : 14) : 0,
@@ -85,10 +90,10 @@ function ejeDe(p, i, n, unidad, lugar) {
   };
 }
 
-function Barras({ datos, lugar, activo, setActivo }) {
+function Barras({ datos, lugar, activo, setActivo, altoMax }) {
   const { puntos, unidad } = datos;
   const n = puntos.length;
-  const m = medidas(n, lugar);
+  const m = medidas(n, lugar, altoMax);
   const maximo = Math.max(...puntos.map((p) => p.total), 1) * 1.08;
   const conValores = n <= 10;
   const radio = m.ancho >= 26 ? "6px 6px 2px 2px" : "4px 4px 1px 1px";
@@ -192,6 +197,17 @@ export default function GraficaVentas() {
   const [fechas, setFechas] = useState(() => ({ desde: sumarDias(hoy, -13), hasta: hoy }));
   const [activo, setActivo] = useState(null);
   const [ampliada, setAmpliada] = useState(false);
+  const [altoVentana, setAltoVentana] = useState(() => window.innerHeight);
+
+  // Mientras la grafica esta ampliada se sigue el alto de la ventana, por si
+  // la persona la cambia de tamaño o gira la tablet.
+  useEffect(() => {
+    if (!ampliada) return undefined;
+    const medir = () => setAltoVentana(window.innerHeight);
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [ampliada]);
 
   // Si se pasan de 90 dias se recorta el inicio y se avisa.
   const recorte = useMemo(() => {
@@ -250,6 +266,10 @@ export default function GraficaVentas() {
     </div>
   ) : null;
 
+  // Lo que no es grafica dentro del dialogo (titulo, cifras, eje, pie y
+  // margenes) mide unos 470 px; con las fechas de "Personalizado", unos 60 mas.
+  const altoMaxGrande = altoVentana - 470 - (personalizado ? 60 : 0);
+
   const cuerpo = (lugar, activoLocal, setActivoLocal) => {
     if (consulta.isError && !datos) {
       return <p className="grafica-vacia" role="alert">No pudimos cargar la gráfica. Revisa tu conexión.</p>;
@@ -264,7 +284,7 @@ export default function GraficaVentas() {
     if (!puntos.length || (rango === "hoy" && datos.pagos === 0)) {
       return <p className="grafica-vacia">Aún no hay pagos hoy.</p>;
     }
-    return <Barras datos={datos} lugar={lugar} activo={activoLocal} setActivo={setActivoLocal} />;
+    return <Barras datos={datos} lugar={lugar} activo={activoLocal} setActivo={setActivoLocal} altoMax={altoMaxGrande} />;
   };
 
   if (movil) {

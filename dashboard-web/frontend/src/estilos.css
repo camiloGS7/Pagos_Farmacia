@@ -32,7 +32,7 @@
   --b-popular:#1E9E5A; --b-agrario:#7FAE22; --b-falabella:#00693A; --b-santander:#EA5A2F; --b-itau:#EC7000;
   --b-lulo:#B5CC18; --b-movii:#1FA5A0; --b-breb:#0891B2; --b-otros:#98A2B3;
   /* Complementos del diseño que la especificacion no lista. */
-  --bad-bg:#FEE4E2; --tip-muted:#475467; --scrim:rgba(11,18,32,0.45);
+  --bad-bg:#FEE4E2; --tip-muted:#475467; --scrim:rgba(11,18,32,0.45); --scrim-dialogo:rgba(245,246,248,0.78);
   --shadow-lg:0 16px 40px -8px rgba(16,24,40,0.28); --sel-row:#ECFDF3;
   --chip-on:#0B1220; --chip-on-fg:#FFFFFF; --toast:#0B1220; --toast-fg:#FFFFFF; --toast-muted:#98A2B3;
   --skeleton:#EAECF0; --skeleton-hero:rgba(255,255,255,0.08);
@@ -57,7 +57,7 @@
   --b-bbva:#7C9AD1; --b-bogota:#6DB0C9; --b-cajasocial:#7CC1E3; --b-occidente:#8F86CF; --b-avvillas:#D9809F;
   --b-popular:#6DBB92; --b-agrario:#A7C96A; --b-falabella:#5FA882; --b-santander:#E8946F; --b-itau:#E3A168;
   --b-lulo:#C9D677; --b-movii:#6DBDBA; --b-breb:#63AFBF; --b-otros:#7F8693;
-  --bad-bg:rgba(224,138,138,0.14); --tip-muted:#4B5260; --scrim:rgba(5,7,10,0.62);
+  --bad-bg:rgba(224,138,138,0.14); --tip-muted:#4B5260; --scrim:rgba(5,7,10,0.62); --scrim-dialogo:rgba(19,23,31,0.82);
   --shadow-lg:0 16px 40px -8px rgba(0,0,0,0.55); --sel-row:rgba(110,201,163,0.08);
   --chip-on:#E4E7EC; --chip-on-fg:#13171F; --toast:#2F3642; --toast-fg:#F0F2F5; --toast-muted:#9AA1AD;
   --skeleton:#262C37; --skeleton-hero:rgba(255,255,255,0.06);
@@ -538,11 +538,27 @@ input::placeholder { color: var(--subtle); }
 @media (min-width: 768px) {
   .hoja { left: 50%; right: auto; width: 480px; transform: translateX(-50%); bottom: 24px; border-radius: 24px; }
 }
+/* El dialogo (grafica ampliada) va centrado en los dos ejes sobre un fondo
+   oscurecido y difuminado: asi las tarjetas oscuras de atras no se confunden
+   con el. margin: auto en el hijo (y no align-items: center) evita que, si el
+   dialogo es mas alto que la pantalla, se corte por arriba sin poder rodar. */
 .capa-dialogo {
-  background: var(--scrim); display: flex; justify-content: center; align-items: flex-start;
-  padding: 72px 32px; overflow-y: auto; animation: aparecer 200ms ease;
+  display: flex;
+  padding: 24px;
+  overflow-y: auto;
+  background: var(--scrim-dialogo);
+  -webkit-backdrop-filter: blur(24px) saturate(0.6);
+  backdrop-filter: blur(24px) saturate(0.6);
+  animation: aparecer 200ms ease;
 }
-.dialogo { width: 100%; max-width: 1160px; box-shadow: var(--shadow-lg); }
+.dialogo {
+  margin: auto;
+  width: 100%;
+  max-width: 1160px;
+  box-shadow: 0 0 0 1px var(--hero-line), 0 32px 80px -16px rgba(0, 0, 0, 0.65);
+  animation: dialogo-entra 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes dialogo-entra { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes subir { from { transform: translateY(100%); } to { transform: none; } }
 @media (min-width: 768px) {
   @keyframes subir { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
